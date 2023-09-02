@@ -597,6 +597,13 @@ echo
 echo "Running tests ${SELECTED_TESTS[*]}"
 echo
 
+if [[ ${WITH_TRIGGERER:="false"} == "true" ]]; then
+    echo
+    echo "Starting airflow triggerer in the background"
+    echo
+    nohup airflow triggerer &
+fi
+
 ARGS=("${EXTRA_PYTEST_ARGS[@]}" "${SELECTED_TESTS[@]}")
 
 if [[ ${RUN_SYSTEM_TESTS:="false"} == "true" ]]; then

@@ -147,6 +147,7 @@ def _run_test(
     test_timeout: int,
     output_outside_the_group: bool = False,
     skip_docker_compose_down: bool = False,
+    with_triggerer: bool = False,
 ) -> tuple[int, str]:
     env_variables = get_env_variables_for_docker_commands(exec_shell_params)
     env_variables["RUN_TESTS"] = "true"
@@ -154,8 +155,10 @@ def _run_test(
         env_variables["TEST_TIMEOUT"] = str(test_timeout)
     if db_reset:
         env_variables["DB_RESET"] = "true"
+    if with_triggerer:
+        env_variables["WITH_TRIGGERER"] = "true"
     env_variables["TEST_TYPE"] = exec_shell_params.test_type
-    env_variables["COLLECT_ONLY"] = str(exec_shell_params.collect_only).lower()
+    # env_variables["COLLECT_ONLY"] = str(exec_shell_params.collect_only).lower()
     env_variables["REMOVE_ARM_PACKAGES"] = str(exec_shell_params.remove_arm_packages).lower()
     env_variables["SKIP_PROVIDER_TESTS"] = str(exec_shell_params.skip_provider_tests).lower()
     env_variables["SUSPENDED_PROVIDERS_FOLDERS"] = " ".join(get_suspended_providers_folders()).strip()
@@ -256,6 +259,7 @@ def _run_tests_in_pool(
     debug_resources: bool,
     skip_cleanup: bool,
     skip_docker_compose_down: bool,
+    with_triggerer: bool,
 ):
     escaped_tests = [test.replace("[", "\\[") for test in tests_to_run]
     with ci_group(f"Testing {' '.join(escaped_tests)}"):
@@ -280,6 +284,7 @@ def _run_tests_in_pool(
                         "output": outputs[index],
                         "test_timeout": test_timeout,
                         "skip_docker_compose_down": skip_docker_compose_down,
+                        "with_triggerer": with_triggerer,
                     },
                 )
                 for index, test_type in enumerate(tests_to_run)
@@ -307,6 +312,7 @@ def run_tests_in_parallel(
     parallelism: int,
     skip_cleanup: bool,
     skio_docker_compose_down: bool,
+    with_triggerer: bool,
 ) -> None:
     _run_tests_in_pool(
         tests_to_run=parallel_test_types_list,
@@ -319,6 +325,7 @@ def run_tests_in_parallel(
         debug_resources=debug_resources,
         skip_cleanup=skip_cleanup,
         skip_docker_compose_down=skio_docker_compose_down,
+        with_triggerer=with_triggerer,
     )
 
 
@@ -393,6 +400,12 @@ def run_tests_in_parallel(
     is_flag=True,
     envvar="SKIP_DOCKER_COMPOSE_DOWN",
 )
+@click.option(
+    "--with-triggerer",
+    help="Start airflow triggerer",
+    is_flag=True,
+    envvar="WITH_TRIGGERER",
+)
 @option_verbose
 @option_dry_run
 @option_github_repository
@@ -422,6 +435,7 @@ def command_for_tests(
     remove_arm_packages: bool,
     github_repository: str,
     skip_docker_compose_down: bool,
+    with_triggerer: bool,
 ):
     docker_filesystem = get_filesystem_type("/var/lib/docker")
     get_console().print(f"Docker filesystem: {docker_filesystem}")
@@ -458,6 +472,7 @@ def command_for_tests(
             skip_cleanup=skip_cleanup,
             debug_resources=debug_resources,
             skio_docker_compose_down=skip_docker_compose_down,
+            with_triggerer=with_triggerer,
         )
     else:
         returncode, _ = _run_test(
@@ -468,6 +483,7 @@ def command_for_tests(
             test_timeout=test_timeout,
             output_outside_the_group=True,
             skip_docker_compose_down=skip_docker_compose_down,
+            with_triggerer=with_triggerer,
         )
         sys.exit(returncode)
 

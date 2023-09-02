@@ -58,6 +58,7 @@ TESTING_PARAMETERS: dict[str, list[dict[str, str | list[str]]]] = {
                 "--upgrade-boto",
                 "--remove-arm-packages",
                 "--skip-docker-compose-down",
+                "--with-triggerer",
             ],
         },
     ],
