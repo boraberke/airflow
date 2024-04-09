@@ -21,8 +21,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
 
+from airflow.models import TaskInstance
 from airflow.models.baseoperator import BaseOperator
 from airflow.models.skipmixin import SkipMixin
+from airflow.serialization.pydantic.taskinstance import TaskInstancePydantic
 
 if TYPE_CHECKING:
     from airflow.utils.context import Context
@@ -34,8 +36,33 @@ class BranchMixIn(SkipMixin):
     def do_branch(self, context: Context, branches_to_execute: str | Iterable[str]) -> str | Iterable[str]:
         """Implement the handling of branching including logging."""
         self.log.info("Branch into %s", branches_to_execute)
-        self.skip_all_except(context["ti"], branches_to_execute)
-        return branches_to_execute
+        branch_task_ids = self.expand_task_group_roots(context["ti"], branches_to_execute)
+        self.skip_all_except(context["ti"], branch_task_ids)
+        return branch_task_ids
+
+    def expand_task_group_roots(self,
+                                ti: TaskInstance | TaskInstancePydantic,
+                                branches_to_execute: str | Iterable[str]
+                                ) -> str | Iterable[str]:
+        """Expand task group roots."""
+        task = ti.task
+        dag = task.dag
+        task_ids = set()
+        if isinstance(branches_to_execute, str):
+
+            if branches_to_execute in dag.task_group_dict.keys():
+                tg = dag.task_group_dict[branches_to_execute]
+                task_ids = [task.task_id for task in tg.roots]
+            else:
+                return branches_to_execute
+        else:
+            for branch in branches_to_execute:
+                if branch not in dag.task_group_dict.keys():
+                    task_ids.append(branch)
+                else:
+                    tg = dag.task_group_dict[branch]
+                    task_ids.extend([task.task_id for task in tg.roots])
+        return task_ids
 
 
 class BaseBranchOperator(BaseOperator, BranchMixIn):

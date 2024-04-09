@@ -29,6 +29,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.utils import timezone
 from airflow.utils.session import create_session
 from airflow.utils.state import State
+from airflow.utils.task_group import TaskGroup
 from airflow.utils.types import DagRunType
 
 pytestmark = pytest.mark.db_test
@@ -61,7 +62,11 @@ class TestBranchOperator:
             schedule=INTERVAL,
         )
 
-        self.branch_1 = EmptyOperator(task_id="branch_1", dag=self.dag)
+        self.branch_1 = TaskGroup(group_id="branch_1", dag=self.dag)
+        self.tg_op_1 = EmptyOperator(task_id="tg_op_1", dag=self.dag, task_group=self.branch_1)
+        self.tg_op_2 = EmptyOperator(task_id="tg_op_2", dag=self.dag, task_group=self.branch_1)
+        self.tg_op_2_2 = EmptyOperator(task_id="tg_op_2_2", dag=self.dag, task_group=self.branch_1)
+        self.tg_op_2 >> self.tg_op_2_2
         self.branch_2 = EmptyOperator(task_id="branch_2", dag=self.dag)
         self.branch_3 = None
         self.branch_op = None
